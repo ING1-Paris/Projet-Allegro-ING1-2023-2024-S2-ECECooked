@@ -1,0 +1,237 @@
+#include <stdio.h>
+#include "allegro.h"
+#define SPEED 10
+
+typedef struct {
+    int x;
+    int y;
+    int w;
+    int h;
+} t_perso;
+
+int collision(t_perso perso1, t_perso perso2) {
+    if (perso1.x < perso2.x + perso2.w &&
+        perso1.x + perso1.w > perso2.x &&
+        perso1.y < perso2.y + perso2.h &&
+        perso1.y + perso1.h > perso2.y) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+int contour(t_perso perso, BITMAP *contour){
+    if (getpixel(contour,perso.x+1,perso.y+1) == makecol(0,0,0)){
+        return 0;
+    }
+    return 1;
+}
+
+int main() {
+    allegro_init();
+    install_keyboard();
+    install_mouse();
+    set_color_depth(desktop_color_depth());
+
+    t_perso perso1 = {400,300,70,107};
+    t_perso perso2 = {300,200,50,78};
+
+    if ((set_gfx_mode(GFX_AUTODETECT_WINDOWED, 800, 600, 0, 0)) != 0) {
+        allegro_message("Pb de mode graphique");
+        allegro_exit();
+        exit(EXIT_FAILURE);
+    }
+
+    BITMAP *map;
+    map = load_bitmap("cuisine.bmp", NULL);
+    if (map == NULL) {
+        allegro_message("erreur chargement");
+        allegro_exit();
+        exit(EXIT_FAILURE);
+    }
+
+    BITMAP *limite;
+    limite = load_bitmap("contour.bmp", NULL);
+    if (limite == NULL){
+        allegro_message("erreur chargement contour");
+        allegro_exit();
+        exit(EXIT_FAILURE);
+    }
+
+    BITMAP *image;
+    image = load_bitmap("cuisinier1.bmp", NULL);
+    if (image == NULL) {
+        allegro_message("erreur bmp");
+        destroy_bitmap(map);
+        allegro_exit();
+        exit(EXIT_FAILURE);
+    }
+
+    BITMAP *image1;
+    image1 = load_bitmap("perso.bmp", NULL);
+    if (image1 == NULL){
+        allegro_message("erreur image");
+        destroy_bitmap(map);
+        destroy_bitmap(image);
+        allegro_exit();
+        exit(EXIT_FAILURE);
+    }
+
+    BITMAP *buffer = create_bitmap(800, 600);
+    if (buffer == NULL) {
+        allegro_message("erreur de chargement");
+        destroy_bitmap(map);
+        destroy_bitmap(image);
+        destroy_bitmap(image1);
+        allegro_exit();
+        exit(EXIT_FAILURE);
+    }
+
+    show_mouse(screen);
+
+    BITMAP *sprite[3][4];
+
+    for (int i = 0; i < 3; ++i) {
+        for (int k = 0; k < 4; ++k) {
+            sprite[i][k]= create_bitmap(70, 115);
+            blit(image, sprite[i][k], 70 * i, 115*k, 0, 0, 70, 115);
+        }
+    }
+
+
+    BITMAP *perso[3][4];
+
+    for (int j = 0; j < 3; ++j) {
+        for (int l = 0; l < 4; ++l) {
+            perso[j][l] = create_bitmap(72,99);
+            blit(image1,perso[j][l],72*j,99*l,0,0,72,99);
+        }
+    }
+
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    int l = 0;
+    while (!key[KEY_ESC]) {
+        clear_bitmap(buffer);
+
+        blit(map, buffer, 0, 0, 0, 0, map->w, map->h);
+
+        if (key[KEY_UP]) {
+            if (contour(perso1,limite)) {
+                perso1.y -= SPEED;
+                i++;
+                k=1;
+                if (i > 2) {
+                    i = 0;
+                }
+            }
+        }
+        if (key[KEY_DOWN]) {
+            if (contour(perso1, limite)) {
+                perso1.y += SPEED;
+                i++;
+                k = 0;
+                if (i > 2) {
+                    i = 0;
+                }
+            }
+        }
+        if (key[KEY_LEFT]) {
+            if (contour(perso1, limite)) {
+                perso1.x -= SPEED;
+                i++;
+                k = 3;
+                if (i>2) {
+                    i = 0;
+                }
+            }
+        }
+        if (key[KEY_RIGHT]) {
+            if (contour(perso1, limite)) {
+                perso1.x += SPEED;
+                i++;
+                l = 2;
+                if (i>2) {
+                    i = 0;
+                }
+            }
+        }
+        if (key[KEY_W]) {
+            if (contour(perso2, limite)) {
+                perso2.y -= SPEED;
+                j++;
+                l = 3;
+                if (j > 2) {
+                    j = 0;
+                }
+            }
+        }
+        if (key[KEY_S]) {
+            if (contour(perso2, limite)) {
+                perso2.y += SPEED;
+                j++;
+                l = 0;
+                if (j>2) {
+                    j = 0;
+                }
+            }
+        }
+        if (key[KEY_A]) {
+            if (contour(perso2, limite)) {
+                perso2.x -= SPEED;
+                j++;
+                l = 1;
+                if (j>2) {
+                    j = 0;
+                }
+            }
+        }
+        if (key[KEY_D]) {
+            if (contour(perso2, limite)) {
+                perso2.x += SPEED;
+                j++;
+                l = 2;
+                if (j>2) {
+                    j = 0;
+                }
+            }
+        }
+        if (collision(perso1, perso2)) {
+
+            if (key[KEY_UP])
+                perso1.y += SPEED;
+            if (key[KEY_DOWN])
+                perso1.y -= SPEED;
+            if (key[KEY_LEFT])
+                perso1.x += SPEED;
+            if (key[KEY_RIGHT])
+                perso1.x -= SPEED;
+
+            if (key[KEY_W])
+                perso2.y += SPEED;
+            if (key[KEY_S])
+                perso2.y -= SPEED;
+            if (key[KEY_A])
+                perso2.x += SPEED;
+            if (key[KEY_D])
+                perso2.x -= SPEED;
+        }
+
+        draw_sprite(buffer, sprite[i][k], perso1.x, perso1.y);
+        draw_sprite(buffer, perso[j][l], perso2.x, perso2.y);
+        blit(buffer, screen, 0, 0, 0, 0, buffer->w, buffer->h);
+        rest(100);
+    }
+
+    destroy_bitmap(image);
+    destroy_bitmap(image1);
+    destroy_bitmap(buffer);
+    destroy_bitmap(map);
+    allegro_exit();
+    return 0;
+}END_OF_MAIN()
+
+
+
+
