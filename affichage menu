@@ -1,0 +1,83 @@
+#include <allegro.h>
+
+BITMAP *background; // Pointeur vers l'image de fond
+
+void init();
+void deinit();
+int is_mouse_over_text(int mouseX, int mouseY, int textY, const char* text);
+void load_background(const char* filename);
+
+int main() {
+    int optionSpacing = 30; // Espacement entre les options du menu
+    int baseY = SCREEN_H / 2 - 20; // Position Y de départ pour la première option
+
+    init();
+    load_background("menuperro.bmp"); // Charge l'image de fond
+
+    if (!background) {
+        allegro_message("Erreur de chargement de l'image de fond");
+        deinit();
+        return -1;
+    }
+
+    while (!key[KEY_ESC]) {
+        // Affiche l'image de fond
+        draw_sprite(screen, background, 0, 0);
+
+        // Affiche les options du menu, centrées horizontalement
+        textout_centre_ex(screen, font, "Jouer", SCREEN_W / 2, SCREEN_H / 2, makecol(255, 0, 0), -1);
+        textout_centre_ex(screen, font, "Options", SCREEN_W / 2, SCREEN_H / 2 + optionSpacing, makecol(255, 0, 0), -1);
+        textout_centre_ex(screen, font, "Crédits", SCREEN_W / 2, SCREEN_H / 2 + 2 * optionSpacing, makecol(255, 0, 0), -1);
+
+        if (mouse_b & 1) {
+            if (is_mouse_over_text(mouse_x, mouse_y,SCREEN_H / 2 , "Jouer")) {
+                allegro_message("Jouer sélectionné!");
+            } else if (is_mouse_over_text(mouse_x, mouse_y,SCREEN_H / 2 + optionSpacing , "Options")) {
+                allegro_message("Options sélectionné!");
+            } else if (is_mouse_over_text(mouse_x, mouse_y,SCREEN_H / 2 + 2 * optionSpacing, "Crédits")) {
+                allegro_message("Crédits sélectionné!");
+            }
+        }
+
+        rest(100); // Pour éviter une utilisation CPU élevée
+    }
+
+    deinit();
+    return 0;
+}
+
+int is_mouse_over_text(int mouseX, int mouseY, int textY, const char* text) {
+    int textWidth = text_length(font, text);
+    int textHeight = text_height(font);
+    int textX = SCREEN_W / 2 - textWidth / 2;
+
+    return (mouseX >= textX && mouseX <= textX + textWidth &&
+            mouseY >= textY && mouseY <= textY + textHeight);
+}
+
+void init() {
+    allegro_init();
+    install_keyboard();
+    install_mouse();
+    install_timer();
+
+    set_color_depth(desktop_color_depth());
+    if (set_gfx_mode(GFX_AUTODETECT_WINDOWED, 1280, 780, 0, 0) != 0) {
+        allegro_message("Erreur de mode graphique");
+        exit(-1);
+    }
+
+    show_mouse(screen);
+}
+
+void load_background(const char* filename) {
+    background = load_bitmap(filename, NULL);
+}
+
+void deinit() {
+    if (background) {
+        destroy_bitmap(background); // Libère la mémoire utilisée par l'image de fond
+    }
+    clear_keybuf();
+}
+END_OF_MAIN()
