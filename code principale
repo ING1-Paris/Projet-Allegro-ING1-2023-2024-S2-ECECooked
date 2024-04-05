@@ -9,6 +9,13 @@ typedef struct {
     int h;
 } t_perso;
 
+typedef struct{
+    int x;
+    int y;
+    int w;
+    int h;
+}t_zone;
+
 int collision(t_perso perso1, t_perso perso2) {
     if (perso1.x < perso2.x + perso2.w &&
         perso1.x + perso1.w > perso2.x &&
@@ -20,12 +27,37 @@ int collision(t_perso perso1, t_perso perso2) {
     }
 }
 
-int contour(t_perso perso, BITMAP *contour){
-    if (getpixel(contour,perso.x+1,perso.y+1) == makecol(0,0,0)){
-        return 0;
+int contour(t_perso perso, BITMAP *limite, int dx, int dy) {
+    for (int i = perso.x; i < perso.x + perso.w; i++) {
+        for (int j = perso.y; j < perso.y + perso.h; j++) {
+            int next_x = i + dx;
+            int next_y = j + dy;
+
+            if (next_x >= 0 && next_x < limite->w && next_y >= 0 && next_y < limite->h) {
+                if (getpixel(limite, next_x, next_y) == makecol(0, 0, 0)) {
+                    return 0; 
+                }
+            }
+        }
     }
     return 1;
 }
+
+int dans_zone(t_perso perso, t_zone zone) {
+    if (perso.x >= zone.x && perso.x + perso.w <= zone.x + zone.w &&
+        perso.y >= zone.y && perso.y + perso.h <= zone.y + zone.h) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+void dessiner_jauge(BITMAP *buffer, int x, int y, int largeur, int hauteur, int valeur, int valeur_max) {
+    int largeur_jauge = (valeur * largeur) / valeur_max;
+    rectfill(buffer, x, y, x + largeur, y + hauteur, makecol(100, 100, 100)); // Rectangle de base
+    rectfill(buffer, x, y, x + largeur_jauge, y + hauteur, makecol(0, 255, 0)); // Rectangle de la jauge
+}
+
 
 int main() {
     allegro_init();
@@ -34,9 +66,10 @@ int main() {
     set_color_depth(desktop_color_depth());
 
     t_perso perso1 = {400,300,70,107};
-    t_perso perso2 = {300,200,50,78};
+    t_perso perso2 = {800,350,50,78};
+    t_zone  zone_specifique = {400,300,200,200};
 
-    if ((set_gfx_mode(GFX_AUTODETECT_WINDOWED, 800, 600, 0, 0)) != 0) {
+    if ((set_gfx_mode(GFX_AUTODETECT_WINDOWED, 1280, 780, 0, 0)) != 0) {
         allegro_message("Pb de mode graphique");
         allegro_exit();
         exit(EXIT_FAILURE);
@@ -50,13 +83,15 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    BITMAP *limite;
-    limite = load_bitmap("contour.bmp", NULL);
-    if (limite == NULL){
+    BITMAP *limite,*limite0;
+    limite0 = load_bitmap("contour.bmp", NULL);
+    if (limite0 == NULL){
         allegro_message("erreur chargement contour");
         allegro_exit();
         exit(EXIT_FAILURE);
     }
+    limite = create_bitmap(SCREEN_W, SCREEN_H);
+    blit(limite0, limite,0,0,SCREEN_W/2 - map->w/2, SCREEN_H/2 - map->h/2,map->w,map->h);
 
     BITMAP *image;
     image = load_bitmap("cuisinier1.bmp", NULL);
@@ -77,12 +112,19 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    BITMAP *buffer = create_bitmap(800, 600);
+    BITMAP *buffer = create_bitmap(SCREEN_W, SCREEN_H);
     if (buffer == NULL) {
         allegro_message("erreur de chargement");
         destroy_bitmap(map);
         destroy_bitmap(image);
         destroy_bitmap(image1);
+        allegro_exit();
+        exit(EXIT_FAILURE);
+    }
+
+    BITMAP *fond = load_bitmap("fond.bmp",NULL);
+    if (fond == NULL){
+        allegro_message("erreur chargement fond");
         allegro_exit();
         exit(EXIT_FAILURE);
     }
@@ -112,13 +154,18 @@ int main() {
     int j = 0;
     int k = 0;
     int l = 0;
+    int niveau_jauge = 0;
+    const int niveau_max = 25;
+
     while (!key[KEY_ESC]) {
         clear_bitmap(buffer);
+        poll_keyboard();
 
-        blit(map, buffer, 0, 0, 0, 0, map->w, map->h);
+        blit(fond,buffer,0,0,0,0,SCREEN_W,SCREEN_H);
+        blit(map, buffer, 0, 0, SCREEN_W/2 - map->w/2, SCREEN_H/2 - map->h/2, map->w, map->h);
 
         if (key[KEY_UP]) {
-            if (contour(perso1,limite)) {
+            if (contour(perso1,limite, 0, -SPEED)) {
                 perso1.y -= SPEED;
                 i++;
                 k=1;
@@ -128,7 +175,7 @@ int main() {
             }
         }
         if (key[KEY_DOWN]) {
-            if (contour(perso1, limite)) {
+            if (contour(perso1, limite, 0, SPEED)) {
                 perso1.y += SPEED;
                 i++;
                 k = 0;
@@ -138,7 +185,7 @@ int main() {
             }
         }
         if (key[KEY_LEFT]) {
-            if (contour(perso1, limite)) {
+            if (contour(perso1, limite, -SPEED, 0)) {
                 perso1.x -= SPEED;
                 i++;
                 k = 3;
@@ -148,17 +195,17 @@ int main() {
             }
         }
         if (key[KEY_RIGHT]) {
-            if (contour(perso1, limite)) {
+            if (contour(perso1, limite, SPEED, 0)) {
                 perso1.x += SPEED;
                 i++;
-                l = 2;
+                k = 2;
                 if (i>2) {
                     i = 0;
                 }
             }
         }
         if (key[KEY_W]) {
-            if (contour(perso2, limite)) {
+            if (contour(perso2, limite, 0, -SPEED)) {
                 perso2.y -= SPEED;
                 j++;
                 l = 3;
@@ -168,7 +215,7 @@ int main() {
             }
         }
         if (key[KEY_S]) {
-            if (contour(perso2, limite)) {
+            if (contour(perso2, limite, 0, SPEED)) {
                 perso2.y += SPEED;
                 j++;
                 l = 0;
@@ -178,7 +225,7 @@ int main() {
             }
         }
         if (key[KEY_A]) {
-            if (contour(perso2, limite)) {
+            if (contour(perso2, limite, -SPEED, 0)) {
                 perso2.x -= SPEED;
                 j++;
                 l = 1;
@@ -188,7 +235,7 @@ int main() {
             }
         }
         if (key[KEY_D]) {
-            if (contour(perso2, limite)) {
+            if (contour(perso2, limite, SPEED, 0)) {
                 perso2.x += SPEED;
                 j++;
                 l = 2;
@@ -217,6 +264,14 @@ int main() {
             if (key[KEY_D])
                 perso2.x -= SPEED;
         }
+        if (key[KEY_C] && dans_zone(perso1, zone_specifique)) {
+            // Augmenter le niveau de la jauge
+            niveau_jauge += 1;
+            if (niveau_jauge > niveau_max) {
+                niveau_jauge = 0;
+            }
+            dessiner_jauge(buffer,400,300,100,20,niveau_jauge, niveau_max);
+        }
 
         draw_sprite(buffer, sprite[i][k], perso1.x, perso1.y);
         draw_sprite(buffer, perso[j][l], perso2.x, perso2.y);
@@ -230,8 +285,5 @@ int main() {
     destroy_bitmap(map);
     allegro_exit();
     return 0;
-}END_OF_MAIN()
-
-
-
-
+}
+END_OF_MAIN()
