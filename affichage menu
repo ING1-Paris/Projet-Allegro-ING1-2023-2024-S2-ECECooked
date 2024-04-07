@@ -15,7 +15,7 @@ int main() {
     load_background("menuperro.bmp"); // Charge l'image de fond
 
     if (!background) {
-        allegro_message("Erreur de chargement de l'image de fond");
+        allegro_message("Erreu de chargement de l'image de fond");
         deinit();
         return -1;
     }
