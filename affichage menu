@@ -1,4 +1,4 @@
-#includ <allegro.h>
+#include <allegro.h>
 
 BITMAP *background; // Pointeur vers l'image de fond
 
