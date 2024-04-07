@@ -8,7 +8,7 @@ int is_mouse_over_text(int mouseX, int mouseY, int textY, const char* text);
 void load_background(const char* filename);
 
 int main() {
-    int optionSpacing = 30; // Espacement entre les options du menu
+    int optioSpacing = 30; // Espacement entre les options du menu
     int baseY = SCREEN_H / 2 - 20; // Position Y de départ pour la première option
 
     init();
