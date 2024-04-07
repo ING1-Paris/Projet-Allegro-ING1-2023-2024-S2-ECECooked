@@ -2,7 +2,7 @@
 
 BITMAP *background; // Pointeur vers l'image de fond
 
-void init();
+void nit();
 void deinit();
 int is_mouse_over_text(int mouseX, int mouseY, int textY, const char* text);
 void load_background(const char* filename);
