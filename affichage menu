@@ -1,6 +1,6 @@
 #include <allegro.h>
 
-BITMAP *background; // Pointeur vers l'image de fond
+BTMAP *background; // Pointeur vers l'image de fond
 
 void init();
 void deinit();
