@@ -1,83 +1,179 @@
+//deuxieme test
 #include <allegro.h>
+#include "jeu.h"  // Inclure l'en-tête de jeu pour utiliser lancerNiveau
 
-BITMAP *background; // Pointeur vers l'image de fond
+// Déclarations des fonctions
+void afficherRegles();
+void afficherMenuPrincipal(BITMAP* buffer);
+void afficherMenuNiveaux(BITMAP* buffer);
+void fermerMenuEtLancerJeu(const char* niveau);
 
-void init();
-void deinit();
-int is_mouse_over_text(int mouseX, int mouseY, int textY, const char* text);
-void load_background(const char* filename);
+typedef enum { MENU_PRINCIPAL, MENU_NIVEAUX, REGLES } EtatMenu;
+EtatMenu etatMenu = MENU_PRINCIPAL;
+
+BITMAP* menu_principal_fond;
+BITMAP* menu_niveaux_fond;
+SAMPLE* menu_music;  // Déclaration globale de menu_music
+BITMAP* buffer;      // Déclaration globale de buffer
+BITMAP* regles_fond;  // Déclaration globale de regles_fond
 
 int main() {
-    int optionSpacing = 30; // Espacement entre les options du menu
-    int baseY = SCREEN_H / 2 - 20; // Position Y de départ pour la première option
-
-    init();
-    load_background("menuperro.bmp"); // Charge l'image de fond
-
-    if (!background) {
-        allegro_message("Erreur de chargement de l'image de fond");
-        deinit();
-        return -1;
-    }
-
-    while (!key[KEY_ESC]) {
-        // Affiche l'image de fond
-        draw_sprite(screen, background, 0, 0);
-
-        // Affiche les options du menu, centrées horizontalement
-        textout_centre_ex(screen, font, "Jouer", SCREEN_W / 2, SCREEN_H / 2, makecol(255, 0, 0), -1);
-        textout_centre_ex(screen, font, "Options", SCREEN_W / 2, SCREEN_H / 2 + optionSpacing, makecol(255, 0, 0), -1);
-        textout_centre_ex(screen, font, "Crédits", SCREEN_W / 2, SCREEN_H / 2 + 2 * optionSpacing, makecol(255, 0, 0), -1);
-
-        if (mouse_b & 1) {
-            if (is_mouse_over_text(mouse_x, mouse_y,SCREEN_H / 2 , "Jouer")) {
-                allegro_message("Jouer sélectionné!");
-            } else if (is_mouse_over_text(mouse_x, mouse_y,SCREEN_H / 2 + optionSpacing , "Options")) {
-                allegro_message("Options sélectionné!");
-            } else if (is_mouse_over_text(mouse_x, mouse_y,SCREEN_H / 2 + 2 * optionSpacing, "Crédits")) {
-                allegro_message("Crédits sélectionné!");
-            }
-        }
-
-        rest(100); // Pour éviter une utilisation CPU élevée
-    }
-
-    deinit();
-    return 0;
-}
-
-int is_mouse_over_text(int mouseX, int mouseY, int textY, const char* text) {
-    int textWidth = text_length(font, text);
-    int textHeight = text_height(font);
-    int textX = SCREEN_W / 2 - textWidth / 2;
-
-    return (mouseX >= textX && mouseX <= textX + textWidth &&
-            mouseY >= textY && mouseY <= textY + textHeight);
-}
-
-void init() {
     allegro_init();
     install_keyboard();
     install_mouse();
     install_timer();
 
-    set_color_depth(desktop_color_depth());
-    if (set_gfx_mode(GFX_AUTODETECT_WINDOWED, 1280, 780, 0, 0) != 0) {
-        allegro_message("Erreur de mode graphique");
-        exit(-1);
+    // Initialisation audio
+    if (install_sound(DIGI_AUTODETECT, MIDI_NONE, NULL) != 0) {
+        allegro_message("Erreur d'initialisation du son\n%s\n", allegro_error);
+        allegro_exit();
+        return -1;
     }
 
-    show_mouse(screen);
-}
-
-void load_background(const char* filename) {
-    background = load_bitmap(filename, NULL);
-}
-
-void deinit() {
-    if (background) {
-        destroy_bitmap(background); // Libère la mémoire utilisée par l'image de fond
+    set_color_depth(16);
+    if (set_gfx_mode(GFX_AUTODETECT_WINDOWED, 800, 600, 0, 0) != 0) {
+        allegro_message("Problème de mode graphique");
+        allegro_exit();
+        return -1;
     }
-    clear_keybuf();
+
+    BITMAP* buffer = create_bitmap(800, 600);
+    menu_principal_fond = load_bitmap("kiffmeno.bmp", NULL);
+    if (!menu_principal_fond) {
+        allegro_message("Impossible de charger l'image de fond du menu principal");
+        allegro_exit();
+        return -1;
+    }
+
+    menu_niveaux_fond = load_bitmap("menuniveau.bmp", NULL); // Chargez ici l'image pour le menu des niveaux
+    if (!menu_niveaux_fond) {
+        allegro_message("Impossible de charger l'image de fond du menu des niveaux");
+        allegro_exit();
+        return -1;
+    }
+
+    regles_fond = load_bitmap("menuregle.bmp", NULL); // Chargez ici l'image pour les règles
+    if (!regles_fond) {
+        allegro_message("Impossible de charger l'image de fond des règles");
+        allegro_exit();
+        return -1;
+    }
+
+    // Charger le son de fond
+    SAMPLE *menu_music = load_sample("sonmedieval.wav");
+    if (!menu_music) {
+        allegro_message("Impossible de charger la musique du menu");
+        destroy_bitmap(menu_principal_fond);
+        destroy_bitmap(menu_niveaux_fond);
+        allegro_exit();
+        return -1;
+    }
+
+    // Jouer la musique en boucle
+    play_sample(menu_music, 255, 128, 1000, 1);
+
+    while (!key[KEY_ESC]) {
+        // Dessiner l'image de fond sur le buffer pour qu'elle recouvre tout
+        switch (etatMenu) {
+            case MENU_PRINCIPAL:
+                draw_sprite(buffer, menu_principal_fond, 0, 0);
+                afficherMenuPrincipal(buffer);
+                break;
+            case MENU_NIVEAUX:
+                draw_sprite(buffer, menu_niveaux_fond, 0, 0); // Afficher l'image de fond du menu des niveaux
+                afficherMenuNiveaux(buffer);
+                break;
+            case REGLES:
+                afficherRegles();
+                break;
+        }
+
+        // Afficher le buffer à l'écran
+        blit(buffer, screen, 0, 0, 0, 0, 800, 600);
+
+        rest(10); // Petite pause pour réduire la charge CPU
+    }
+
+    // Libération des ressources
+    destroy_bitmap(menu_principal_fond);
+    destroy_bitmap(menu_niveaux_fond);
+    destroy_sample(menu_music);
+    destroy_bitmap(buffer);
+
+    allegro_exit();
+    return 0;
 }
-END_OF_MAIN()
+END_OF_MAIN();
+
+// Fonction pour afficher les règles du jeu
+void afficherRegles() {
+    draw_sprite(screen, regles_fond, 0, 0); // Afficher l'image de fond des règles
+    readkey(); // Attendre que l'utilisateur appuie sur une touche
+    etatMenu = MENU_PRINCIPAL; // Retour au menu principal
+}
+
+// Fonction pour afficher le menu principal
+void afficherMenuPrincipal(BITMAP* buffer) {
+    int btn_x = 350, btn_y = 250, btn_w = 100, btn_h = 30;
+
+    //textout_centre_ex(buffer, font, "Jouer", btn_x + btn_w / 2, btn_y, makecol(255, 0, 0), -1);
+    //textout_centre_ex(buffer, font, "Options", btn_x + btn_w / 2, btn_y + 100, makecol(255, 0, 0), -1);
+    //textout_centre_ex(buffer, font, "Quitter", btn_x + btn_w / 2, btn_y + 200, makecol(255, 0, 0), -1);
+
+    show_mouse(buffer);
+
+    if (mouse_b & 1) {
+        if (mouse_x > btn_x && mouse_x < btn_x + btn_w && mouse_y > btn_y && mouse_y < btn_y + btn_h) {
+            etatMenu = MENU_NIVEAUX; // Afficher le menu des niveaux
+            rest(200);  // Petite pause pour éviter un double-clic involontaire
+        } else if (mouse_x > btn_x && mouse_x < btn_x + btn_w && mouse_y > btn_y + 100 && mouse_y < btn_y + 100 + btn_h) {
+            etatMenu = REGLES; // Afficher les règles
+        } else if (mouse_x > btn_x && mouse_x < btn_x + btn_w && mouse_y > btn_y + 200 && mouse_y < btn_y + 200 + btn_h) {
+            allegro_exit();
+            exit(0); // Quitter le programme
+        }
+    }
+}
+
+void fermerMenuEtLancerJeu(const char* niveau) {
+    // Libération des ressources du menu
+    destroy_bitmap(menu_principal_fond);
+    destroy_bitmap(menu_niveaux_fond);
+    destroy_sample(menu_music);
+    destroy_bitmap(buffer);
+    destroy_bitmap(regles_fond);
+
+    allegro_exit();
+
+    // Lancez le jeu
+    lancerNiveau(niveau);
+}
+
+
+// Fonction pour afficher le menu des niveaux
+void afficherMenuNiveaux(BITMAP* buffer) {
+    int btn_x = 350, btn_y = 250, btn_w = 100, btn_h = 30;
+
+    //textout_centre_ex(buffer, font, "Niveau 1", btn_x + btn_w / 2, btn_y, makecol(255, 0, 0), -1);
+   // textout_centre_ex(buffer, font, "Niveau 2", btn_x + btn_w / 2, btn_y + 100, makecol(255, 0, 0), -1);
+    //textout_centre_ex(buffer, font, "Niveau 3", btn_x + btn_w / 2, btn_y + 200, makecol(255, 0, 0), -1);
+    //textout_centre_ex(buffer, font, "Retour", btn_x + btn_w / 2, btn_y + 300, makecol(255, 0, 0), -1);
+
+    show_mouse(buffer);
+
+    if (mouse_b & 1) {
+        if (mouse_x > btn_x && mouse_x < btn_x + btn_w && mouse_y > btn_y && mouse_y < btn_y + btn_h) {
+            fermerMenuEtLancerJeu("Niveau 1"); // Fermer le menu et lancer le niveau 1
+        } else if (mouse_x > btn_x && mouse_x < btn_x + btn_w && mouse_y > btn_y + 100 && mouse_y < btn_y + 100 + btn_h) {
+            fermerMenuEtLancerJeu("Niveau 2"); // Fermer le menu et lancer le niveau 2
+        } else if (mouse_x > btn_x && mouse_x < btn_x + btn_w && mouse_y > btn_y + 200 && mouse_y < btn_y + 200 + btn_h) {
+            fermerMenuEtLancerJeu("Niveau 3"); // Fermer le menu et lancer le niveau 3
+        } else if (mouse_x > btn_x && mouse_x < btn_x + btn_w + 200 && mouse_y > btn_y + 200 && mouse_y < btn_y + 200 + btn_h) {
+            etatMenu = MENU_PRINCIPAL; // Retour au menu principal
+            rest(200);  // Petite pause pour éviter un double-clic involontaire
+        }
+    }
+}
+
+
+
