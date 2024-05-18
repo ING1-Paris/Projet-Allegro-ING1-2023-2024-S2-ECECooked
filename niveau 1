@@ -1,0 +1,619 @@
+#include <allegro.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define SPEED 10
+#define TIMER_START_VALUE 60000
+#define TIMER_UPDATE_INTERVAL 100
+#define COMMAND_APPEAR_INTERVAL 8000
+#define COMMAND_LIFETIME 30000
+#define MAX_COMMANDS 5
+
+typedef struct {
+    int x;
+    int y;
+    int w;
+    int h;
+} t_perso;
+
+typedef struct {
+    int x;
+    int y;
+    int w;
+    int h;
+} t_zone;
+
+typedef struct {
+    int x;
+    int y;
+    int w;
+    int h;
+    int grabbed;
+    int on_table;
+} t_aliment;
+
+typedef struct {
+    int command_type;
+    time_t start_time;
+    int active;
+} t_command;
+
+BITMAP* load_image(const char* filename) {
+    BITMAP* bmp = load_bitmap(filename, NULL);
+    if (!bmp) {
+        allegro_message("Erreur de chargement de %s", filename);
+        allegro_exit();
+        exit(EXIT_FAILURE);
+    }
+    return bmp;
+}
+
+int collision(t_perso perso1, t_perso perso2) {
+    if (perso1.x < perso2.x + perso2.w &&
+        perso1.x + perso1.w > perso2.x &&
+        perso1.y < perso2.y + perso2.h &&
+        perso1.y + perso1.h > perso2.y) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+int contour(t_perso perso, BITMAP *limite, int dx, int dy) {
+    for (int i = perso.x; i < perso.x + perso.w; i++) {
+        for (int j = perso.y; j < perso.y + perso.h; j++) {
+            int next_x = i + dx;
+            int next_y = j + dy;
+
+            if (next_x >= 0 && next_x < limite->w && next_y >= 0 && next_y < limite->h) {
+                if (getpixel(limite, next_x, next_y) == makecol(0, 0, 0)) {
+                    return 0;
+                }
+            }
+        }
+    }
+    return 1;
+}
+
+void deplacer_personnage1(t_perso *perso, BITMAP *limite, int dx, int dy, int *frame, int *i, int *k) {
+    if (key[KEY_UP] && contour(*perso, limite, 0, -SPEED)) {
+        perso->y -= SPEED;
+        (*i)++;
+        (*k) = 1;
+        if ((*i) > 2) {
+            (*i) = 0;
+        }
+    }
+    if (key[KEY_DOWN] && contour(*perso, limite, 0, SPEED)) {
+        perso->y += SPEED;
+        (*i)++;
+        (*k) = 0;
+        if ((*i) > 2) {
+            (*i) = 0;
+        }
+    }
+    if (key[KEY_LEFT] && contour(*perso, limite, -SPEED, 0)) {
+        perso->x -= SPEED;
+        (*i)++;
+        (*k) = 3;
+        if ((*i) > 2) {
+            (*i) = 0;
+        }
+    }
+    if (key[KEY_RIGHT] && contour(*perso, limite, SPEED, 0)) {
+        perso->x += SPEED;
+        (*i)++;
+        (*k) = 2;
+        if ((*i) > 2) {
+            (*i) = 0;
+        }
+    }
+}
+
+void deplacer_personnage2(t_perso *perso, BITMAP *limite, int dx, int dy, int *frame, int *j, int *l) {
+    if (key[KEY_W] && contour(*perso, limite, 0, -SPEED)) {
+        perso->y -= SPEED;
+        (*j)++;
+        (*l) = 3;
+        if ((*j) > 2) {
+            (*j) = 0;
+        }
+    }
+    if (key[KEY_S] && contour(*perso, limite, 0, SPEED)) {
+        perso->y += SPEED;
+        (*j)++;
+        (*l) = 0;
+        if ((*j) > 2) {
+            (*j) = 0;
+        }
+    }
+    if (key[KEY_A] && contour(*perso, limite, -SPEED, 0)) {
+        perso->x -= SPEED;
+        (*j)++;
+        (*l) = 1;
+        if ((*j) > 2) {
+            (*j) = 0;
+        }
+    }
+    if (key[KEY_D] && contour(*perso, limite, SPEED, 0)) {
+        perso->x += SPEED;
+        (*j)++;
+        (*l) = 2;
+        if ((*j) > 2) {
+            (*j) = 0;
+        }
+    }
+}
+
+void gerer_collision(t_perso* perso1, t_perso* perso2) {
+    if (collision(*perso1, *perso2)) {
+        if (key[KEY_UP]) perso1->y += SPEED;
+        if (key[KEY_DOWN]) perso1->y -= SPEED;
+        if (key[KEY_LEFT]) perso1->x += SPEED;
+        if (key[KEY_RIGHT]) perso1->x -= SPEED;
+        if (key[KEY_W]) perso2->y += SPEED;
+        if (key[KEY_S]) perso2->y -= SPEED;
+        if (key[KEY_A]) perso2->x += SPEED;
+        if (key[KEY_D]) perso2->x -= SPEED;
+    }
+}
+
+int dans_zone(t_perso perso, t_zone zone) {
+    if (perso.x >= zone.x && perso.x + perso.w <= zone.x + zone.w &&
+        perso.y >= zone.y && perso.y + perso.h <= zone.y + zone.h) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+void dessiner_jauge(BITMAP *buffer, int x, int y, int largeur, int hauteur, int valeur, int valeur_max) {
+    int largeur_jauge = (valeur * largeur) / valeur_max;
+    rectfill(buffer, x, y, x + largeur, y + hauteur, makecol(100, 100, 100));
+    rectfill(buffer, x, y, x + largeur_jauge, y + hauteur, makecol(0, 255, 0));
+}
+
+void add_command(t_command commands[], int *num_commands) {
+    if (*num_commands < MAX_COMMANDS) {
+        commands[*num_commands].command_type = rand() % 5;
+        commands[*num_commands].start_time = time(NULL);
+        commands[*num_commands].active = 1;
+        (*num_commands)++;
+    }
+}
+
+void update_commands(t_command commands[], int *num_commands) {
+    time_t current_time = time(NULL);
+    for (int i = 0; i < *num_commands; i++) {
+        if (commands[i].active && difftime(current_time, commands[i].start_time) >= COMMAND_LIFETIME / 1000) {
+            commands[i].active = 0;
+        }
+    }
+    int active_count = 0;
+    for (int i = 0; i < *num_commands; i++) {
+        if (commands[i].active) {
+            commands[active_count++] = commands[i];
+        }
+    }
+    *num_commands = active_count;
+}
+
+void lancerNiveau(const char* niveau) {
+    allegro_init();
+    install_keyboard();
+    install_mouse();
+    set_color_depth(desktop_color_depth());
+    srand(time(NULL));
+
+    time_t start_time;
+    int timer_value;
+    start_time = time(NULL);
+    timer_value = TIMER_START_VALUE;
+
+    t_perso perso1 = {400, 300, 70, 107};
+    t_perso perso2 = {800, 350, 50, 78};
+    t_zone zone = {400, 500, 600, 400};
+    t_zone zone1 = {270, 245, 80, 117};
+    t_zone zone2 = {270, 300, 80, 117};
+    t_zone zone3 = {270, 345, 80, 117};
+    t_zone zone4 = {270, 400, 80, 117};
+    t_zone zonebol = {450,61,80,200};
+    t_zone zonecommande = {10, 10, 100, 134};
+    t_zone zoneplantravail = {675,180,200,200};
+    t_zone zonecoupe = {565, 600,0,0};
+    t_zone zonesalle = {800, 350, 70, 107};
+    t_aliment tomate = {0};
+    t_aliment tomate2 = {0};
+    t_aliment crevette = {0};
+    t_aliment crevette2 = {0};
+    t_aliment aliment = {0};
+    t_aliment aliment2 = {0};
+    t_aliment aliment1 = {0};
+    t_aliment aliment12 = {0};
+    t_aliment bole = {0};
+    t_aliment bole2 = {0};
+    t_aliment tomatecoupee = {0};
+    t_aliment tomatecoupee2 = {0};
+    t_aliment saladetomate = {0};
+    t_aliment saladetomate2 = {0};
+
+    if ((set_gfx_mode(GFX_AUTODETECT_WINDOWED, 1280, 780, 0, 0)) != 0) {
+        allegro_message("Pb de mode graphique");
+        allegro_exit();
+        exit(EXIT_FAILURE);
+    }
+
+    BITMAP* map = load_image("MAP MOYEN AGE.bmp");
+    BITMAP* limite0 = load_image("contour.bmp");
+    BITMAP* limite = create_bitmap(SCREEN_W, SCREEN_H);
+    blit(limite0, limite, 0, 0, SCREEN_W / 2 - map->w / 2, SCREEN_H / 2 - map->h / 2, map->w, map->h);
+
+    BITMAP* image = load_image("cuisinier1.bmp");
+    BITMAP* image1 = load_image("perso.bmp");
+    BITMAP* tomate1 = load_image("tomate.bmp");
+    BITMAP* crevette1 = load_image("crevette.bmp");
+    BITMAP* aliment4 = load_image("crevette.bmp");
+    BITMAP* aliment3 = load_image("crevette.bmp");
+    BITMAP* bol1 = load_image("bol.bmp");
+    BITMAP* bole1 = load_image("bole.bmp");
+    BITMAP* planche = load_image("planche.bmp");
+    BITMAP* sel = load_image("sel.bmp");
+    BITMAP* fond = load_image("fond.bmp");
+    BITMAP* saladetomate1 = load_image("saladetomate.bmp");
+    show_mouse(screen);
+
+    BITMAP *tomatecoupe[3];
+    for (int i = 0; i < 3; i++) {
+        char filename[50];
+        sprintf(filename, "tomatecoupe/tomatecoupe%d.bmp", i + 1);
+        tomatecoupe[i] = load_bitmap(filename, NULL);
+        if (tomatecoupe[i] == NULL) {
+            allegro_message("Erreur de chargement de l'image de commande %d", i + 1);
+        }
+    }
+
+    BITMAP *commande_image[5];
+    for (int i = 0; i < 5; i++) {
+        char filename[50];
+        sprintf(filename, "commandes/commande%d.bmp", i + 1);
+        commande_image[i] = load_bitmap(filename, NULL);
+        if (commande_image[i] == NULL) {
+            allegro_message("Erreur de chargement de l'image de commande %d", i + 1);
+        }
+    }
+
+    BITMAP *buffer = create_bitmap(SCREEN_W, SCREEN_H);
+    if (buffer == NULL) {
+        allegro_message("erreur de chargement");
+        destroy_bitmap(map);
+        destroy_bitmap(image);
+        destroy_bitmap(image1);
+        destroy_bitmap(tomate1);
+        allegro_exit();
+        exit(EXIT_FAILURE);
+    }
+
+    BITMAP *sprite[3][4];
+    for (int i = 0; i < 3; ++i) {
+        for (int k = 0; k < 4; ++k) {
+            sprite[i][k] = create_bitmap(70, 115);
+            blit(image, sprite[i][k], 70 * i, 115 * k, 0, 0, 70, 115);
+        }
+    }
+
+    BITMAP *perso[3][4];
+    for (int j = 0; j < 3; ++j) {
+        for (int l = 0; l < 4; ++l) {
+            perso[j][l] = create_bitmap(72, 99);
+            blit(image1, perso[j][l], 72 * j, 99 * l, 0, 0, 72, 99);
+        }
+    }
+
+    int i = 0, k = 0;
+    int j = 0, l = 0;
+    int frame = 0;
+    int delai = 1;
+    int niveau_jauge = 0;
+    const int niveau_max = 25;
+    int time_since_last_command = 0;
+    int num_commands = 0;
+    t_command commands[MAX_COMMANDS] = {0};
+
+    while (!key[KEY_ESC]) {
+        clear_bitmap(buffer);
+        poll_keyboard();
+        time_t current_time = time(NULL);
+        timer_value = TIMER_START_VALUE - difftime(current_time, start_time) * 1000;
+
+        blit(fond, buffer, 0, 0, 0, 0, SCREEN_W, SCREEN_H);
+        blit(map, buffer, 0, 0, SCREEN_W / 2 - map->w / 2, SCREEN_H / 2 - map->h / 2, map->w, map->h);
+
+        deplacer_personnage1(&perso1, limite, 0, -SPEED, &frame, &i, &k);
+        deplacer_personnage2(&perso2, limite, 0, -SPEED, &frame, &j, &l);
+        gerer_collision(&perso1, &perso2);
+
+        if (key[KEY_C] && dans_zone(perso1, zone)) {
+            niveau_jauge += 1;
+            if (niveau_jauge > niveau_max) {
+                niveau_jauge = 0;
+            }
+            dessiner_jauge(buffer, 450, 500, 100, 20, niveau_jauge, niveau_max);
+        }
+        if (key[KEY_1_PAD] && dans_zone(perso2, zone)) {
+            niveau_jauge += 1;
+            if (niveau_jauge > niveau_max) {
+                niveau_jauge = 0;
+            }
+            dessiner_jauge(buffer, 450, 500, 100, 20, niveau_jauge, niveau_max);
+        }
+
+        if (key[KEY_V] && dans_zone(perso1, zone1)) {
+            if (!tomate.grabbed) {
+                tomate.grabbed = 1;
+            } else {
+                tomate.grabbed = 0;
+            }
+        }
+        if (tomate.grabbed) {
+            tomate.x = perso1.x;
+            tomate.y = perso1.y + perso1.h / 2;
+        }
+
+        if (key[KEY_V] && dans_zone(perso1, zone2)) {
+            if (!crevette.grabbed) {
+                crevette.grabbed = 1;
+            } else {
+                crevette.grabbed = 0;
+            }
+        }
+        if (crevette.grabbed) {
+            crevette.x = perso1.x;
+            crevette.y = perso1.y + perso1.h / 2;
+        }
+
+        if (key[KEY_V] && dans_zone(perso1, zone3)) {
+            if (!crevette.grabbed) {
+                crevette.grabbed = 1;
+            } else {
+                crevette.grabbed = 0;
+            }
+        }
+        if (crevette.grabbed) {
+            crevette.x = perso1.x;
+            crevette.y = perso1.y + perso1.h / 2;
+        }
+
+        if (key[KEY_V] && dans_zone(perso1, zone4)) {
+            if (!crevette.grabbed) {
+                crevette.grabbed = 1;
+            } else {
+                crevette.grabbed = 0;
+            }
+        }
+        if (crevette.grabbed) {
+            crevette.x = perso1.x;
+            crevette.y = perso1.y + perso1.h / 2;
+        }
+
+        if (key[KEY_V] && dans_zone(perso1, zonebol)) {
+            if (!bole.grabbed) {
+                bole.grabbed = 1;
+            } else {
+                bole.grabbed = 0;
+            }
+        }
+        if (bole.grabbed) {
+            bole.x = perso1.x;
+            bole.y = perso1.y + perso1.h / 2;
+        }
+
+        if (key[KEY_V] && dans_zone(perso1, zoneplantravail)) {
+            if (bole.grabbed) {
+                bole.grabbed = 0;
+                bole.on_table = 1;
+                bole.x = zoneplantravail.x;
+                bole.y = zoneplantravail.y;
+            }else if (bole.on_table){
+                bole.grabbed = 1;
+                bole.on_table = 0;
+            }
+        }
+
+        if (key[KEY_V] && dans_zone(perso1, zone)) {
+            if (!tomatecoupee.grabbed) {
+                tomatecoupee.grabbed = 1;
+            } else {
+                tomatecoupee.grabbed = 0;
+            }
+        }
+        if (tomatecoupee.grabbed) {
+            tomatecoupee.x = perso1.x;
+            tomatecoupee.y = perso1.y + perso1.h / 2;
+        }
+
+        if (key[KEY_V] && dans_zone(perso1, zoneplantravail)) {
+            if (tomatecoupee.grabbed) {
+                tomatecoupee.grabbed = 0;
+                tomatecoupee.on_table = 1;
+            }else{
+                tomatecoupee.grabbed = 1;
+                tomatecoupee.on_table =0;
+            }
+        }
+
+        if (key[KEY_V] && dans_zone(perso1, zoneplantravail) && tomatecoupee.grabbed){
+            if(!saladetomate.grabbed){
+                saladetomate.grabbed = 1;
+                saladetomate.on_table = 0;
+            } else{
+                saladetomate.grabbed = 0;
+                saladetomate.on_table = 1;
+            }
+        }
+        if (saladetomate.grabbed){
+            saladetomate.x = perso1.x;
+            saladetomate.y = perso1.y + perso1.h / 2;
+        }
+
+        if (key[KEY_2_PAD] && dans_zone(perso2, zone1)) {
+            if (!tomate2.grabbed) {
+                tomate2.grabbed = 1;
+            } else {
+                tomate2.grabbed = 0;
+            }
+        }
+        if (tomate2.grabbed) {
+            tomate2.x = perso2.x;
+            tomate2.y = perso2.y + perso2.h / 1.5;
+        }
+
+        if (key[KEY_2_PAD] && dans_zone(perso2, zone2)) {
+            if (!crevette2.grabbed) {
+                crevette2.grabbed = 1;
+
+            } else {
+                crevette2.grabbed = 0;
+            }
+        }
+        if (crevette2.grabbed) {
+            crevette2.x = perso2.x;
+            crevette2.y = perso2.y + perso2.h / 1.5;
+        }
+
+        if (key[KEY_2_PAD] && dans_zone(perso2, zone3)) {
+            if (!crevette2.grabbed) {
+                crevette2.grabbed = 1;
+            } else {
+                crevette2.grabbed = 0;
+            }
+        }
+        if (crevette2.grabbed) {
+            crevette2.x = perso2.x;
+            crevette2.y = perso2.y + perso2.h / 1.5;
+        }
+
+        if (key[KEY_2_PAD] && dans_zone(perso2, zone4)) {
+            if (!crevette2.grabbed) {
+                crevette2.grabbed = 1;
+            } else {
+                crevette2.grabbed = 0;
+            }
+        }
+        if (crevette2.grabbed) {
+            crevette2.x = perso2.x;
+            crevette2.y = perso2.y + perso2.h / 1.5;
+        }
+
+        if (key[KEY_2_PAD] && dans_zone(perso2, zonebol)) {
+            if (!bole2.grabbed) {
+                bole2.grabbed = 1;
+            } else {
+                bole2.grabbed = 0;
+            }
+        }
+        if (bole2.grabbed) {
+            bole2.x = perso2.x;
+            bole2.y = perso2.y + perso2.h / 1.5;
+        }
+
+        if (key[KEY_2_PAD] && dans_zone(perso2, zoneplantravail)) {
+            if (bole2.grabbed) {
+                bole2.grabbed = 0;
+                bole2.on_table = 1;
+                bole2.x = zoneplantravail.x;
+                bole2.y = zoneplantravail.y;
+            }else if (bole2.on_table){
+                bole2.grabbed = 1;
+                bole2.on_table = 0;
+            }
+        }
+
+        time_since_last_command += TIMER_UPDATE_INTERVAL;
+        if (time_since_last_command >= COMMAND_APPEAR_INTERVAL) {
+            time_since_last_command = 0;
+            add_command(commands, &num_commands);
+        }
+
+        update_commands(commands, &num_commands);
+
+        if (key[KEY_C] && dans_zone(perso1, zone) && tomate.grabbed) {
+            tomate.grabbed = 0;
+            if (frame == 0) {
+                draw_sprite(buffer, tomatecoupe[0], zonecoupe.x, zonecoupe.y);
+            } else if (frame == 1) {
+                draw_sprite(buffer, tomatecoupe[1], zonecoupe.x, zonecoupe.y);
+            } else if (frame == 2) {
+                draw_sprite(buffer, tomatecoupe[2], zonecoupe.x, zonecoupe.y);
+            }
+            frame++;
+            rest(delai);
+        }else if (tomatecoupee.grabbed == 0 && tomatecoupee.on_table == 0) {
+            if (frame>0){
+                draw_sprite(buffer, tomatecoupe[2], zonecoupe.x, zonecoupe.y);
+                rest(delai);
+            }else{
+                frame = 0;
+            }
+        }
+        for (int i = 0; i < num_commands; i++) {
+            draw_sprite(buffer, commande_image[commands[i].command_type], 100, 100 + i * 150);
+        }
+        textprintf_centre_ex(buffer, font, SCREEN_W / 2, SCREEN_H / 2, makecol(255, 255, 255), -1, "%02d:%02d", timer_value / 60000, (timer_value / 1000) % 60);
+        draw_sprite(buffer, sprite[i][k], perso1.x, perso1.y);
+        draw_sprite(buffer, perso[j][l], perso2.x, perso2.y);
+        draw_sprite(buffer, bol1, zonebol.x, zonebol.y);
+        draw_sprite(buffer, planche,zonecoupe.x, zonecoupe.y);
+        draw_sprite(buffer, sel, zoneplantravail.x, zoneplantravail.y);
+        if (tomate.grabbed) {
+            draw_sprite(buffer, tomate1, tomate.x, tomate.y);
+        }
+        if (crevette.grabbed) {
+            draw_sprite(buffer, crevette1, crevette.x, crevette.y);
+        }
+        if (bole.grabbed) {
+            draw_sprite(buffer, bole1, bole.x, bole.y);
+            tomatecoupee.grabbed = 0;
+            saladetomate.grabbed = 0;
+        }
+        if (bole.on_table) {
+            draw_sprite(buffer, bole1, zoneplantravail.x, zoneplantravail.y);
+        }
+        if (tomatecoupee.grabbed) {
+            draw_sprite(buffer, tomatecoupe[2], tomatecoupee.x, tomatecoupee.y);
+        }
+        if (tomatecoupee.on_table) {
+            bole.on_table = 0;
+            bole.grabbed = 0;
+            draw_sprite(buffer, saladetomate1, zoneplantravail.x, zoneplantravail.y);
+        }
+        if (saladetomate.grabbed) {
+            draw_sprite(buffer, saladetomate1, saladetomate.x, saladetomate.y);
+        }
+        if (tomate2.grabbed) {
+            draw_sprite(buffer, tomate1, tomate2.x, tomate2.y);
+        }
+        if (crevette2.grabbed) {
+            draw_sprite(buffer, crevette1, crevette2.x, crevette2.y);
+        }
+        if (bole2.grabbed) {
+            draw_sprite(buffer, bole1, bole2.x, bole2.y);
+        }
+        if (bole2.on_table) {
+            draw_sprite(buffer, bole1, zoneplantravail.x, zoneplantravail.y);
+        }
+        if (tomatecoupee2.grabbed) {
+            draw_sprite(buffer, tomatecoupe[2], tomatecoupee2.x, tomatecoupee2.y);
+        }
+        blit(buffer, screen, 0, 0, 0, 0, buffer->w, buffer->h);
+        rest(TIMER_UPDATE_INTERVAL);
+    }
+
+    destroy_bitmap(image);
+    destroy_bitmap(image1);
+    destroy_bitmap(buffer);
+    destroy_bitmap(map);
+    allegro_exit();
+}
+
+
