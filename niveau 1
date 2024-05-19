@@ -218,25 +218,28 @@ void lancerNiveau(const char* niveau) {
     t_zone zone2 = {270, 300, 80, 117};
     t_zone zone3 = {270, 345, 80, 117};
     t_zone zone4 = {270, 400, 80, 117};
-    t_zone zonebol = {450,61,80,200};
+    t_zone zonebol = {450, 61, 80, 200};
     t_zone zonecommande = {10, 10, 100, 134};
-    t_zone zoneplantravail = {675,180,200,200};
-    t_zone zonecoupe = {565, 600,0,0};
+    t_zone zoneplantravail = {675, 180, 200, 200};
+    t_zone zonecoupe = {565, 600, 0, 0};
     t_zone zonesalle = {800, 350, 70, 107};
+    t_zone zonepoubelle = {1000, 400, 80, 117};  // Zone de la poubelle
+
     t_aliment tomate = {0};
     t_aliment tomate2 = {0};
-    t_aliment crevette = {0};
-    t_aliment crevette2 = {0};
-    t_aliment aliment = {0};
-    t_aliment aliment2 = {0};
+    t_aliment olive = {0};
+    t_aliment olive2 = {0};
+    t_aliment oignon = {0};
+    t_aliment oignon2 = {0};
     t_aliment aliment1 = {0};
-    t_aliment aliment12 = {0};
+    t_aliment aliment2 = {0};
     t_aliment bole = {0};
     t_aliment bole2 = {0};
     t_aliment tomatecoupee = {0};
     t_aliment tomatecoupee2 = {0};
     t_aliment saladetomate = {0};
     t_aliment saladetomate2 = {0};
+    t_aliment salade = {0};  // Ajouter la salade
 
     if ((set_gfx_mode(GFX_AUTODETECT_WINDOWED, 1280, 780, 0, 0)) != 0) {
         allegro_message("Pb de mode graphique");
@@ -252,15 +255,16 @@ void lancerNiveau(const char* niveau) {
     BITMAP* image = load_image("cuisinier1.bmp");
     BITMAP* image1 = load_image("perso.bmp");
     BITMAP* tomate1 = load_image("tomate.bmp");
-    BITMAP* crevette1 = load_image("crevette.bmp");
-    BITMAP* aliment4 = load_image("crevette.bmp");
-    BITMAP* aliment3 = load_image("crevette.bmp");
+    BITMAP* olive1 = load_image("olive.bmp");
+    BITMAP* oignon1 = load_image("oignon.bmp");
     BITMAP* bol1 = load_image("bol.bmp");
     BITMAP* bole1 = load_image("bole.bmp");
     BITMAP* planche = load_image("planche.bmp");
     BITMAP* sel = load_image("sel.bmp");
     BITMAP* fond = load_image("fond.bmp");
     BITMAP* saladetomate1 = load_image("saladetomate.bmp");
+    BITMAP* salade1 = load_image("salade.bmp");  // Ajouter le sprite de la salade
+    BITMAP* poubelle1 = load_image("poubelle.bmp");  // Ajouter le sprite de la poubelle
     show_mouse(screen);
 
     BITMAP *tomatecoupe[3];
@@ -361,39 +365,39 @@ void lancerNiveau(const char* niveau) {
         }
 
         if (key[KEY_V] && dans_zone(perso1, zone2)) {
-            if (!crevette.grabbed) {
-                crevette.grabbed = 1;
+            if (!olive.grabbed) {
+                olive.grabbed = 1;
             } else {
-                crevette.grabbed = 0;
+                olive.grabbed = 0;
             }
         }
-        if (crevette.grabbed) {
-            crevette.x = perso1.x;
-            crevette.y = perso1.y + perso1.h / 2;
+        if (olive.grabbed) {
+            olive.x = perso1.x;
+            olive.y = perso1.y + perso1.h / 2;
         }
 
         if (key[KEY_V] && dans_zone(perso1, zone3)) {
-            if (!crevette.grabbed) {
-                crevette.grabbed = 1;
+            if (!oignon.grabbed) {
+                oignon.grabbed = 1;
             } else {
-                crevette.grabbed = 0;
+                oignon.grabbed = 0;
             }
         }
-        if (crevette.grabbed) {
-            crevette.x = perso1.x;
-            crevette.y = perso1.y + perso1.h / 2;
+        if (oignon.grabbed) {
+            oignon.x = perso1.x;
+            oignon.y = perso1.y + perso1.h / 2;
         }
 
         if (key[KEY_V] && dans_zone(perso1, zone4)) {
-            if (!crevette.grabbed) {
-                crevette.grabbed = 1;
+            if (!salade.grabbed) {
+                salade.grabbed = 1;
             } else {
-                crevette.grabbed = 0;
+                salade.grabbed = 0;
             }
         }
-        if (crevette.grabbed) {
-            crevette.x = perso1.x;
-            crevette.y = perso1.y + perso1.h / 2;
+        if (salade.grabbed) {
+            salade.x = perso1.x;
+            salade.y = perso1.y + perso1.h / 2;
         }
 
         if (key[KEY_V] && dans_zone(perso1, zonebol)) {
@@ -414,7 +418,7 @@ void lancerNiveau(const char* niveau) {
                 bole.on_table = 1;
                 bole.x = zoneplantravail.x;
                 bole.y = zoneplantravail.y;
-            }else if (bole.on_table){
+            } else if (bole.on_table) {
                 bole.grabbed = 1;
                 bole.on_table = 0;
             }
@@ -436,22 +440,22 @@ void lancerNiveau(const char* niveau) {
             if (tomatecoupee.grabbed) {
                 tomatecoupee.grabbed = 0;
                 tomatecoupee.on_table = 1;
-            }else{
+            } else {
                 tomatecoupee.grabbed = 1;
-                tomatecoupee.on_table =0;
+                tomatecoupee.on_table = 0;
             }
         }
 
-        if (key[KEY_V] && dans_zone(perso1, zoneplantravail) && tomatecoupee.grabbed){
-            if(!saladetomate.grabbed){
+        if (key[KEY_V] && dans_zone(perso1, zoneplantravail) && tomatecoupee.grabbed) {
+            if (!saladetomate.grabbed) {
                 saladetomate.grabbed = 1;
                 saladetomate.on_table = 0;
-            } else{
+            } else {
                 saladetomate.grabbed = 0;
                 saladetomate.on_table = 1;
             }
         }
-        if (saladetomate.grabbed){
+        if (saladetomate.grabbed) {
             saladetomate.x = perso1.x;
             saladetomate.y = perso1.y + perso1.h / 2;
         }
@@ -469,40 +473,40 @@ void lancerNiveau(const char* niveau) {
         }
 
         if (key[KEY_2_PAD] && dans_zone(perso2, zone2)) {
-            if (!crevette2.grabbed) {
-                crevette2.grabbed = 1;
+            if (!olive2.grabbed) {
+                olive2.grabbed = 1;
 
             } else {
-                crevette2.grabbed = 0;
+                olive2.grabbed = 0;
             }
         }
-        if (crevette2.grabbed) {
-            crevette2.x = perso2.x;
-            crevette2.y = perso2.y + perso2.h / 1.5;
+        if (olive2.grabbed) {
+            olive2.x = perso2.x;
+            olive2.y = perso2.y + perso2.h / 1.5;
         }
 
         if (key[KEY_2_PAD] && dans_zone(perso2, zone3)) {
-            if (!crevette2.grabbed) {
-                crevette2.grabbed = 1;
+            if (!oignon2.grabbed) {
+                oignon2.grabbed = 1;
             } else {
-                crevette2.grabbed = 0;
+                oignon2.grabbed = 0;
             }
         }
-        if (crevette2.grabbed) {
-            crevette2.x = perso2.x;
-            crevette2.y = perso2.y + perso2.h / 1.5;
+        if (oignon2.grabbed) {
+            oignon2.x = perso2.x;
+            oignon2.y = perso2.y + perso2.h / 1.5;
         }
 
         if (key[KEY_2_PAD] && dans_zone(perso2, zone4)) {
-            if (!crevette2.grabbed) {
-                crevette2.grabbed = 1;
+            if (!salade.grabbed) {
+                salade.grabbed = 1;
             } else {
-                crevette2.grabbed = 0;
+                salade.grabbed = 0;
             }
         }
-        if (crevette2.grabbed) {
-            crevette2.x = perso2.x;
-            crevette2.y = perso2.y + perso2.h / 1.5;
+        if (salade.grabbed) {
+            salade.x = perso2.x;
+            salade.y = perso2.y + perso2.h / 1.5;
         }
 
         if (key[KEY_2_PAD] && dans_zone(perso2, zonebol)) {
@@ -523,9 +527,46 @@ void lancerNiveau(const char* niveau) {
                 bole2.on_table = 1;
                 bole2.x = zoneplantravail.x;
                 bole2.y = zoneplantravail.y;
-            }else if (bole2.on_table){
+            } else if (bole2.on_table) {
                 bole2.grabbed = 1;
                 bole2.on_table = 0;
+            }
+        }
+
+        // Gestion des aliments dans la poubelle
+        if (key[KEY_P] && (dans_zone(perso1, zonepoubelle) || dans_zone(perso2, zonepoubelle))) {
+            if (tomate.grabbed) {
+                tomate.grabbed = 0;
+            }
+            if (olive.grabbed) {
+                olive.grabbed = 0;
+            }
+            if (oignon.grabbed) {
+                oignon.grabbed = 0;
+            }
+            if (salade.grabbed) {
+                salade.grabbed = 0;
+            }
+            if (tomatecoupee.grabbed) {
+                tomatecoupee.grabbed = 0;
+            }
+            if (saladetomate.grabbed) {
+                saladetomate.grabbed = 0;
+            }
+            if (bole.grabbed) {
+                bole.grabbed = 0;
+            }
+            if (tomate2.grabbed) {
+                tomate2.grabbed = 0;
+            }
+            if (olive2.grabbed) {
+                olive2.grabbed = 0;
+            }
+            if (oignon2.grabbed) {
+                oignon2.grabbed = 0;
+            }
+            if (bole2.grabbed) {
+                bole2.grabbed = 0;
             }
         }
 
@@ -548,28 +589,35 @@ void lancerNiveau(const char* niveau) {
             }
             frame++;
             rest(delai);
-        }else if (tomatecoupee.grabbed == 0 && tomatecoupee.on_table == 0) {
-            if (frame>0){
+        } else if (tomatecoupee.grabbed == 0 && tomatecoupee.on_table == 0) {
+            if (frame > 0) {
                 draw_sprite(buffer, tomatecoupe[2], zonecoupe.x, zonecoupe.y);
                 rest(delai);
-            }else{
+            } else {
                 frame = 0;
             }
         }
+
         for (int i = 0; i < num_commands; i++) {
             draw_sprite(buffer, commande_image[commands[i].command_type], 100, 100 + i * 150);
         }
+
         textprintf_centre_ex(buffer, font, SCREEN_W / 2, SCREEN_H / 2, makecol(255, 255, 255), -1, "%02d:%02d", timer_value / 60000, (timer_value / 1000) % 60);
         draw_sprite(buffer, sprite[i][k], perso1.x, perso1.y);
         draw_sprite(buffer, perso[j][l], perso2.x, perso2.y);
         draw_sprite(buffer, bol1, zonebol.x, zonebol.y);
-        draw_sprite(buffer, planche,zonecoupe.x, zonecoupe.y);
+        draw_sprite(buffer, planche, zonecoupe.x, zonecoupe.y);
         draw_sprite(buffer, sel, zoneplantravail.x, zoneplantravail.y);
+        draw_sprite(buffer, poubelle1, zonepoubelle.x, zonepoubelle.y);
+
         if (tomate.grabbed) {
             draw_sprite(buffer, tomate1, tomate.x, tomate.y);
         }
-        if (crevette.grabbed) {
-            draw_sprite(buffer, crevette1, crevette.x, crevette.y);
+        if (olive.grabbed) {
+            draw_sprite(buffer, olive1, olive.x, olive.y);
+        }
+        if (oignon.grabbed) {
+            draw_sprite(buffer, oignon1, oignon.x, oignon.y);
         }
         if (bole.grabbed) {
             draw_sprite(buffer, bole1, bole.x, bole.y);
@@ -593,8 +641,11 @@ void lancerNiveau(const char* niveau) {
         if (tomate2.grabbed) {
             draw_sprite(buffer, tomate1, tomate2.x, tomate2.y);
         }
-        if (crevette2.grabbed) {
-            draw_sprite(buffer, crevette1, crevette2.x, crevette2.y);
+        if (olive2.grabbed) {
+            draw_sprite(buffer, olive1, olive2.x, olive2.y);
+        }
+        if (oignon2.grabbed) {
+            draw_sprite(buffer, oignon1, oignon2.x, oignon2.y);
         }
         if (bole2.grabbed) {
             draw_sprite(buffer, bole1, bole2.x, bole2.y);
@@ -602,9 +653,10 @@ void lancerNiveau(const char* niveau) {
         if (bole2.on_table) {
             draw_sprite(buffer, bole1, zoneplantravail.x, zoneplantravail.y);
         }
-        if (tomatecoupee2.grabbed) {
-            draw_sprite(buffer, tomatecoupe[2], tomatecoupee2.x, tomatecoupee2.y);
+        if (salade.grabbed) {
+            draw_sprite(buffer, salade1, salade.x, salade.y);
         }
+
         blit(buffer, screen, 0, 0, 0, 0, buffer->w, buffer->h);
         rest(TIMER_UPDATE_INTERVAL);
     }
@@ -615,5 +667,3 @@ void lancerNiveau(const char* niveau) {
     destroy_bitmap(map);
     allegro_exit();
 }
-
-
